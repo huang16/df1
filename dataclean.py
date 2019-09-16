@@ -1,8 +1,13 @@
 import pandas as pd
 import re
+import os
 
 
-DATAPATH='./data/'
+BERTPATH='~/Models/chinese_wwm_ext_L-12_H-768_A-12/'
+DATAPATH='~/DataSets/df1/'
+BERTPATH=os.path.expanduser(BERTPATH)
+DATAPATH=os.path.expanduser(DATAPATH)
+OUTPUTPATH='./data/'
 DATASETS=[]
 DATASET_LABELS=[]
 datas=[]
