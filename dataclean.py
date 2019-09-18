@@ -1,6 +1,7 @@
 import pandas as pd
 import re
 import os
+import bert
 
 
 BERTPATH='~/Models/chinese_wwm_ext_L-12_H-768_A-12/'
