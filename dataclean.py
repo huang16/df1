@@ -4,6 +4,8 @@ import os
 import math
 import bert
 
+# TODO fix bug in 15c9756a7e2a4b6ca259c9bf9f748112, pandas can not split currently
+# should split one line, but 4, 4ec089b73a73429c86c119830254bed6
 class DataExample(object):
     def __init__(self,id,sentence,label=None):
         self.id=id
