@@ -1,3 +1,7 @@
 /data
 /bert-master
 .DS_Store
+/.DS_Store
+/.idea/df1.iml
+/.idea/misc.xml
+/__pycache__
