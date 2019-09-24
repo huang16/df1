@@ -36,6 +36,7 @@ import tensorflow as tf
 import numpy as np
 
 
+# TODO improve memory performance
 class ExtractConf(object):
     # too poor to use tpu
     # hope update one day
