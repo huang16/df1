@@ -44,6 +44,7 @@ class ExtractConf(object):
                  sentence_field=None,
                  id_field=None,
                  input_list=None,
+                 label_dict=None,
                  checkpoint_folder=None,
                  do_lower_case=True,
                  batch_size=32,
@@ -58,6 +59,7 @@ class ExtractConf(object):
         self.sentence_field = sentence_field
         self.id_field = id_field
         self.input_list = input_list
+        self.label_dict=label_dict
         self.checkpoint_folder = checkpoint_folder
         self.do_lower_case = do_lower_case
         self.batch_size = batch_size
@@ -67,7 +69,7 @@ class ExtractConf(object):
         self.vocab_file = os.path.expanduser(bert_folder + 'vocab.txt')
         self.init_checkpoint = os.path.expanduser(bert_folder + 'bert_model.ckpt')
         self.output_folder = output_folder
-        self.use_tpu = use_tpu,
+        self.use_tpu = use_tpu
         self.master = master
         self.num_tpu_cores = num_tpu_cores
 
@@ -115,7 +117,7 @@ def input_fn_builder(features, seq_length):
         # not TPU compatible. The right way to load data is with TFRecordReader.
         d = tf.data.Dataset.from_tensor_slices({
             "unique_ids":
-                tf.constant(all_unique_ids, shape=[num_examples], dtype=tf.int32),
+                tf.constant(all_unique_ids, shape=[num_examples], dtype=tf.string),
             "input_ids":
                 tf.constant(
                     all_input_ids, shape=[num_examples, seq_length],
@@ -334,6 +336,7 @@ def read_examples(input_list, sentence_field='sentence', id_field=None):
                 InputExample(unique_id=unique_id, text_a=text_a, text_b=text_b))
         else:
             unique_id += 1
+    print('len examples: %d'%len(examples))
     return examples
 
 
@@ -388,16 +391,25 @@ def extract(config):
                                                                      len(features))
     with open(output_filename, 'wb') as output:
         all_feature = []
+        invalid_key=0
         for result in estimator.predict(input_fn, yield_single_examples=True):
             unique_id = result['unique_id']
             if config.id_field is None:
                 unique_id = int(unique_id)
-            feature = unique_id_to_feature[unique_id]
+            # feature = unique_id_to_feature[unique_id]
             output_feature = {'id': unique_id}
             sentence_features = []
             for (i, index) in enumerate(layer_indexes):
                 sentence_features.append(result["layer_output_%d" % i])
             sentence_features = np.array(sentence_features)
             output_feature['matrix'] = sentence_features
+            if config.label_dict is not None:
+                try:
+                    output_feature['label']=config.label_dict[unique_id]
+                except KeyError:
+                    output_feature['label'] =-1
+                    invalid_key+=1
             all_feature.append(output_feature)
+        print(len(all_feature))
         cPickle.dump(all_feature, output)
+        print('invalid key:%d'%invalid_key)
