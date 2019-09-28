@@ -22,13 +22,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import codecs
-import collections
-import json
+import _locale
+_locale._getdefaultlocale = (lambda *args: ['zh_CN', 'utf8'])
+
 import re
 import os
-import pickle as cPickle
 import time
+import collections
 
 from bert import modeling
 from bert import tokenization
@@ -36,7 +36,15 @@ import tensorflow as tf
 import numpy as np
 
 
-# TODO improve memory performance
+class FeatureExtract(object):
+    def __init__(self, id, matrix, label=None):
+        self.id = id
+        self.matrix = matrix
+        self.label = label
+
+    __setitem__ = object.__setattr__
+    __getitem__ = object.__getattribute__
+
 class ExtractConf(object):
     # too poor to use tpu
     # hope update one day
@@ -60,7 +68,7 @@ class ExtractConf(object):
         self.sentence_field = sentence_field
         self.id_field = id_field
         self.input_list = input_list
-        self.label_dict=label_dict
+        self.label_dict = label_dict
         self.checkpoint_folder = checkpoint_folder
         self.do_lower_case = do_lower_case
         self.batch_size = batch_size
@@ -91,6 +99,51 @@ class InputFeatures(object):
         self.input_ids = input_ids
         self.input_mask = input_mask
         self.input_type_ids = input_type_ids
+
+
+class FeatureWriter(object):
+    def __init__(self, filename):
+        self.filename = filename
+        self.num_features = 0
+        self._writer = tf.python_io.TFRecordWriter(filename)
+
+    def process_feature(self, feature):
+        if self.num_features % 1000 == 0:
+            print('writing feature: %d' % self.num_features)
+        self.num_features += 1
+
+        def create_bytes_values(values):
+            feature_b = tf.train.Feature(
+                bytes_list=tf.train.BytesList(value=list(values)))
+            return feature_b
+
+        '''
+        def create_string_values(values):
+            return create_bytes_values([bytes(values,encoding='utf-8')])
+        '''
+
+        def create_float_values(values):
+            feature_f = tf.train.Feature(
+                float_list=tf.train.FloatList(value=list(values)))
+            return feature_f
+
+        '''
+        def create_int_values(values):
+            feature_i = tf.train.Feature(
+                int64_list=tf.train.Int64List(value=list(values)))
+            return feature_i
+        '''
+
+        features = collections.OrderedDict()
+        features['id'] = create_bytes_values([feature.id])
+        features['matrix'] = create_bytes_values([feature.matrix.tobytes()])
+        features['label'] = create_float_values([float(feature.label)])
+
+        tf_example = tf.train.Example(features=tf.train.Features(feature=features))
+        self._writer.write(tf_example.SerializeToString())
+
+    def close(self):
+        self._writer.close()
 
 
 def input_fn_builder(features, seq_length):
@@ -277,7 +330,7 @@ def convert_examples_to_features(examples, seq_length, tokenizer):
 
         if ex_index < 5:
             tf.logging.info("*** Example ***")
-            tf.logging.info("unique_id: %s" % (example.unique_id))
+            tf.logging.info("unique_id: %s" % example.unique_id)
             tf.logging.info("tokens: %s" % " ".join(
                 [tokenization.printable_text(x) for x in tokens]))
             tf.logging.info("input_ids: %s" % " ".join([str(x) for x in input_ids]))
@@ -337,7 +390,7 @@ def read_examples(input_list, sentence_field='sentence', id_field=None):
                 InputExample(unique_id=unique_id, text_a=text_a, text_b=text_b))
         else:
             unique_id += 1
-    print('len examples: %d'%len(examples))
+    print('len examples: %d' % len(examples))
     return examples
 
 
@@ -385,32 +438,36 @@ def extract(config):
         seq_length=config.max_seq_length
     )
     now = time.localtime()
-    output_filename = 'extract_features_time_%d_%d_%d_%d_size_%d' % (now.tm_mon,
-                                                                     now.tm_mday,
-                                                                     now.tm_hour,
-                                                                     now.tm_min,
-                                                                     len(features))
-    with open(output_filename, 'wb') as output:
-        all_feature = []
-        invalid_key=0
-        for result in estimator.predict(input_fn, yield_single_examples=True):
-            unique_id = result['unique_id']
-            if config.id_field is None:
-                unique_id = int(unique_id)
-            # feature = unique_id_to_feature[unique_id]
-            output_feature = {'id': unique_id}
-            sentence_features = []
-            for (i, index) in enumerate(layer_indexes):
-                sentence_features.append(result["layer_output_%d" % i])
-            sentence_features = np.array(sentence_features)
-            output_feature['matrix'] = sentence_features
-            if config.label_dict is not None:
-                try:
-                    output_feature['label']=config.label_dict[unique_id]
-                except KeyError:
-                    output_feature['label'] =-1
-                    invalid_key+=1
-            all_feature.append(output_feature)
-        print(len(all_feature))
-        cPickle.dump(all_feature, output)
-        print('invalid key:%d'%invalid_key)
+    output_filename = 'extract_features_time_%d_%d_%d_%d_size_%d.tf_record' % (now.tm_mon,
+                                                                               now.tm_mday,
+                                                                               now.tm_hour,
+                                                                               now.tm_min,
+                                                                               len(features))
+
+    data_writer = FeatureWriter(
+        filename=output_filename
+    )
+
+    invalid_key = 0
+    for result in estimator.predict(input_fn, yield_single_examples=True):
+        unique_id = result['unique_id']
+        if config.id_field is None:
+            unique_id = int(unique_id)
+        # feature = unique_id_to_feature[unique_id]
+        sentence_features = []
+        for (i, index) in enumerate(layer_indexes):
+            sentence_features.append(result["layer_output_%d" % i])
+        sentence_features = np.array(sentence_features)
+        matrix = sentence_features
+        label = -1
+        if config.label_dict is not None:
+            try:
+                label = config.label_dict[bytes.decode(unique_id)]
+            except KeyError:
+                invalid_key += 1
+        result_out = FeatureExtract(unique_id, matrix, label)
+        data_writer.process_feature(result_out)
+
+    print('num_feature: %d' % data_writer.num_features)
+    data_writer.close()
+    print('invalid key:%d' % invalid_key)

@@ -5,3 +5,4 @@
 /.idea/df1.iml
 /.idea/misc.xml
 /__pycache__
+*.tf_record

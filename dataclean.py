@@ -1,10 +1,13 @@
+import _locale
+_locale._getdefaultlocale = (lambda *args: ['zh_CN', 'utf8'])
+
 import pandas as pd
 import re
 import os
 from extract_features import ExtractConf,extract
 import pickle as cPickle
 
-# TODO refactor for multiplexing
+
 class DataExample(object):
     def __init__(self, id, sentence, label=None):
         self.id = id
@@ -49,7 +52,6 @@ def read_raw_dataset(dataset):
     for line in raw_data_split:
         sentence_id = line.id
         index += 1
-        # TODO label is None in test set
         try:
             label = ans_dict[sentence_id]
         except KeyError:
@@ -88,10 +90,9 @@ def read_raw_dataset(dataset):
         else:
             print('ERR::invalid content %s, in line %d' % (str(content), index - 1))
     convert_list = []
-    with open(OUTPUTPATH + 'OUTPUT_' + dataset, 'w', encoding='utf-8') as output:
+    with open(OUTPUTPATH + 'OUTPUT_' + dataset, 'wb') as output:
         text = 'id,sentence,label\n'
         for sentence in sentence_list:
-            # TODO fix None in field sentence and label
             if type(sentence.sentence) is not str or len(sentence.sentence) == 0:
                 log = 'frag data: %s,%s,%s' % (str(sentence.id), str(sentence.sentence), str(sentence.label))
                 print(log)
@@ -101,15 +102,17 @@ def read_raw_dataset(dataset):
             else:
                 text = text + '%s,%s,%d\n' % (sentence.id, sentence.sentence, sentence.label)
                 convert_list.append(sentence)
-            # TODO tran sentence to vec by using bert
-        output.write(text)
+        cPickle.dump(convert_list,output)
     print('len convert_list:  %d' % (len(convert_list)))
     return convert_list, ans_dict
 
 
 if __name__ == '__main__':
-    # TODO use pickle to save clean_data and reload clean_data
-    (convert_list,ans_dict)=read_raw_dataset(DATASETS[0])
+    if os.path.exists(OUTPUTPATH + 'OUTPUT_' + DATASETS[0],):
+        convert_list=cPickle.load(open(OUTPUTPATH + 'OUTPUT_' + DATASETS[0],mode='rb'))
+        ans_dict=load_answers()
+    else:
+        (convert_list,ans_dict)=read_raw_dataset(DATASETS[0])
     config=ExtractConf(sentence_field='sentence',
                        id_field='id',
                        input_list=convert_list,
