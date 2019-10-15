@@ -36,6 +36,7 @@ import tensorflow as tf
 import numpy as np
 
 
+
 # TODO improve memory performance
 class ExtractConf(object):
     # too poor to use tpu
@@ -52,7 +53,7 @@ class ExtractConf(object):
                  layers='-1,-2,-3,-4',
                  use_one_hot_embeddings=False,
                  bert_folder='~/Models/chinese_wwm_ext_L-12_H-768_A-12/',
-                 output_folder='./output/',
+                 output_folder='~/DataSets/df1/',
                  use_tpu=False,
                  master=None,
                  num_tpu_cores=8):
@@ -395,6 +396,7 @@ def extract(config):
         invalid_key=0
         for result in estimator.predict(input_fn, yield_single_examples=True):
             unique_id = result['unique_id']
+
             if config.id_field is None:
                 unique_id = int(unique_id)
             # feature = unique_id_to_feature[unique_id]
@@ -406,7 +408,7 @@ def extract(config):
             output_feature['matrix'] = sentence_features
             if config.label_dict is not None:
                 try:
-                    output_feature['label']=config.label_dict[unique_id]
+                    output_feature['label']=config.label_dict[unique_id.decode(encoding='utf-8')]
                 except KeyError:
                     output_feature['label'] =-1
                     invalid_key+=1

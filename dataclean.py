@@ -3,6 +3,7 @@ import re
 import os
 from extract_features import ExtractConf,extract
 import pickle as cPickle
+from sklearn.model_selection import train_test_split
 
 # TODO refactor for multiplexing
 class DataExample(object):
@@ -22,6 +23,7 @@ DATAPATH = os.path.expanduser(DATAPATH)
 OUTPUTPATH = './data/'
 DATASETS = ['Train_DataSet.csv']
 DATASET_LABELS = 'Train_DataSet_Label.csv'
+# 7354:764,3659,2932
 datas = []
 
 def load_answers():
@@ -110,9 +112,16 @@ def read_raw_dataset(dataset):
 if __name__ == '__main__':
     # TODO use pickle to save clean_data and reload clean_data
     (convert_list,ans_dict)=read_raw_dataset(DATASETS[0])
+    convert_list_train,convert_list_test=train_test_split(convert_list,test_size=0.2,random_state=42)
     config=ExtractConf(sentence_field='sentence',
                        id_field='id',
-                       input_list=convert_list,
+                       input_list=convert_list_train,
                        label_dict=ans_dict,
                        batch_size=32)
+    extract(config)
+    config = ExtractConf(sentence_field='sentence',
+                         id_field='id',
+                         input_list=convert_list_test,
+                         label_dict=ans_dict,
+                         batch_size=32)
     extract(config)
