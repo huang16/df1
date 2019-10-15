@@ -93,6 +93,7 @@ def read_raw_dataset(dataset):
             print('ERR::invalid content %s, in line %d' % (str(content), index - 1))
     convert_list = []
     with open(OUTPUTPATH + 'OUTPUT_' + dataset, 'wb') as output:
+        print('dump path:%s'%output.name)
         text = 'id,sentence,label\n'
         for sentence in sentence_list:
             if type(sentence.sentence) is not str or len(sentence.sentence) == 0:
@@ -111,13 +112,12 @@ def read_raw_dataset(dataset):
 
 if __name__ == '__main__':
     # TODO use pickle to save clean_data and reload clean_data
-    (convert_list,ans_dict)=read_raw_dataset(DATASETS[0])
-    convert_list_train,convert_list_test=train_test_split(convert_list,test_size=0.2,random_state=42)
     if os.path.exists(OUTPUTPATH + 'OUTPUT_' + DATASETS[0],):
         convert_list=cPickle.load(open(OUTPUTPATH + 'OUTPUT_' + DATASETS[0],mode='rb'))
         ans_dict=load_answers()
     else:
         (convert_list,ans_dict)=read_raw_dataset(DATASETS[0])
+    convert_list_train, convert_list_test = train_test_split(convert_list, test_size=0.2, random_state=42)
     config=ExtractConf(sentence_field='sentence',
                        id_field='id',
                        input_list=convert_list_train,
