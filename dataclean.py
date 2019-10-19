@@ -33,11 +33,14 @@ def load_answers():
     answer = pd.read_csv(DATAPATH + DATASET_LABELS, index_col=0)
     ans_dict = answer.to_dict()['label']
     return ans_dict
-def read_raw_dataset(dataset):
+def read_raw_dataset(dataset,evalSet=False):
     ans_dict=load_answers()
     with open(DATAPATH + dataset,encoding='utf-8') as dataset_file:
         raw_data = dataset_file.readlines()[1:]
-    raw_data_tat=train_test_split(raw_data,test_size=0.2,random_state=42)
+    if not evalSet:
+        raw_data_tat=train_test_split(raw_data,test_size=0.2,random_state=42)
+    else:
+        raw_data_tat =[raw_data]
     convert_list_r=[]
     for raw_data in raw_data_tat:
         raw_data_split = []
@@ -55,6 +58,7 @@ def read_raw_dataset(dataset):
         sentence_list = []
         index = 0
         for line in raw_data_split:
+            sentence_subid=0
             sentence_id = line.id
             index += 1
             try:
@@ -68,9 +72,11 @@ def read_raw_dataset(dataset):
             if type(title) is str and len(title) > 0:
                 sentence_in = re.sub(r'(\s)|[\u0020-\u007e]{5,}', '', title)
                 while len(sentence_in) > 128:
-                    sentence_list.append(DataExample(sentence_id, sentence_in[:128], label))
+                    sentence_list.append(DataExample(sentence_id+'%d'%sentence_subid, sentence_in[:128], label))
+                    sentence_subid+=1
                     sentence_in = sentence_in[128:]
-                sentence_list.append(DataExample(sentence_id, sentence_in, label))
+                sentence_list.append(DataExample(sentence_id+'%d'%sentence_subid, sentence_in, label))
+                sentence_subid += 1
             else:
                 print('ERR::invalid title %s, in line %d' % (str(title), index - 1))
             content = line.label
@@ -81,17 +87,21 @@ def read_raw_dataset(dataset):
                 if len(content_fragment) == 1:
                     sentence_in = re.sub(r'(\s)|[\u0020-\u007e]{5,}', '', content)
                     while len(sentence_in) > 128:
-                        sentence_list.append(DataExample(sentence_id, sentence_in[:128], label))
+                        sentence_list.append(DataExample(sentence_id+'%d'%sentence_subid, sentence_in[:128], label))
+                        sentence_subid += 1
                         sentence_in = sentence_in[128:]
-                    sentence_list.append(DataExample(sentence_id, sentence_in, label))
+                    sentence_list.append(DataExample(sentence_id+'%d'%sentence_subid, sentence_in, label))
+                    sentence_subid += 1
                 else:
                     for i in range(0, len(content_fragment) - 1, 2):
                         sentence_sym = content_fragment[i] + content_fragment[i + 1]
                         sentence_in = re.sub(r'(\s)|[\u0020-\u007e]{5,}', '', sentence_sym)
                         while len(sentence_in) > 128:
-                            sentence_list.append(DataExample(sentence_id, sentence_in[:128], label))
+                            sentence_list.append(DataExample(sentence_id+'%d'%sentence_subid, sentence_in[:128], label))
+                            sentence_subid += 1
                             sentence_in = sentence_in[128:]
-                        sentence_list.append(DataExample(sentence_id, sentence_in, label))
+                        sentence_list.append(DataExample(sentence_id+'%d'%sentence_subid, sentence_in, label))
+                        sentence_subid += 1
             else:
                 print('ERR::invalid content %s, in line %d' % (str(content), index - 1))
         convert_list = []
@@ -123,15 +133,10 @@ if __name__ == '__main__':
     else:
         (convert_list,ans_dict)=read_raw_dataset(DATASETS[0])
     #convert_list_train, convert_list_test = train_test_split(convert_list, test_size=0.2, random_state=42)
-    config=ExtractConf(sentence_field='sentence',
-                       id_field='id',
-                       input_list=convert_list[0],
-                       label_dict=ans_dict,
-                       batch_size=32)
-    extract(config)
-    config = ExtractConf(sentence_field='sentence',
-                         id_field='id',
-                         input_list=convert_list[1],
-                         label_dict=ans_dict,
-                         batch_size=32)
-    extract(config)
+    for convert_list_item in convert_list:
+        config=ExtractConf(sentence_field='sentence',
+                           id_field='id',
+                           input_list=convert_list[0],
+                           label_dict=ans_dict,
+                           batch_size=32)
+        extract(config)
