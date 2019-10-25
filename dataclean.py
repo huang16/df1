@@ -23,9 +23,10 @@ BERTPATH = '~/Models/chinese_wwm_ext_L-12_H-768_A-12/'
 DATAPATH = '~/DataSets/df1/'
 BERTPATH = os.path.expanduser(BERTPATH)
 DATAPATH = os.path.expanduser(DATAPATH)
-OUTPUTPATH = './data/'
-DATASETS = ['Train_DataSet.csv']
+OUTPUTPATH = '~/DataSets/df1/1t/'
+DATASETS = ['Train_DataSet.csv','Test_DataSet.csv']
 DATASET_LABELS = 'Train_DataSet_Label.csv'
+EVALSET=True
 # 7354:764,3659,2932
 datas = []
 
@@ -127,16 +128,25 @@ def read_raw_dataset(dataset,evalSet=False):
 
 if __name__ == '__main__':
     # TODO use pickle to save clean_data and reload clean_data
-    if os.path.exists(OUTPUTPATH + 'OUTPUT_' + DATASETS[0],):
-        convert_list=cPickle.load(open(OUTPUTPATH + 'OUTPUT_' + DATASETS[0],mode='rb'))
-        ans_dict=load_answers()
+    if EVALSET:
+        if os.path.exists(OUTPUTPATH + 'OUTPUT_' + DATASETS[1]+'280339',):
+            convert_list=[cPickle.load(open(OUTPUTPATH + 'OUTPUT_' + DATASETS[1]+'280339',mode='rb'))]
+            ans_dict=load_answers()
+        else:
+            (convert_list,ans_dict)=read_raw_dataset(DATASETS[1],evalSet=EVALSET)
     else:
-        (convert_list,ans_dict)=read_raw_dataset(DATASETS[0])
+        if os.path.exists(OUTPUTPATH + 'OUTPUT_' + DATASETS[0],):
+            convert_list=[cPickle.load(open(OUTPUTPATH + 'OUTPUT_' + DATASETS[0],mode='rb'))]
+            ans_dict=load_answers()
+        else:
+            (convert_list,ans_dict)=read_raw_dataset(DATASETS[0],evalSet=EVALSET)
     #convert_list_train, convert_list_test = train_test_split(convert_list, test_size=0.2, random_state=42)
     for convert_list_item in convert_list:
         config=ExtractConf(sentence_field='sentence',
                            id_field='id',
-                           input_list=convert_list[0],
+                           input_list=convert_list_item,
                            label_dict=ans_dict,
-                           batch_size=32)
+                           batch_size=32,
+                           bert_folder=BERTPATH,
+                           output_folder=OUTPUTPATH)
         extract(config)

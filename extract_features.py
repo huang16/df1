@@ -61,7 +61,7 @@ class ExtractConf(object):
                  batch_size=32,
                  layers='-1,-2,-3,-4',
                  use_one_hot_embeddings=False,
-                 bert_folder='~/Models/chinese_wwm_ext_L-12_H-768_A-12/',
+                 bert_folder='~/Models/chinese_roberta_wwm_ext_L-12_H-768_A-12/',
                  output_folder='~/DataSets/df1/',
                  use_tpu=False,
                  master=None,
