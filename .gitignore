@@ -6,3 +6,5 @@
 /.idea/misc.xml
 /__pycache__
 *.tf_record
+/checkpoint
+/predict
