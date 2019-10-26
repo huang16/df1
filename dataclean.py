@@ -19,14 +19,15 @@ class DataExample(object):
     __getitem__ = object.__getattribute__
 
 
-BERTPATH = '~/Models/chinese_wwm_ext_L-12_H-768_A-12/'
+BERTPATH = '~/Models/chinese_roberta_wwm_large_ext_L-24_H-1024_A-16/'
 DATAPATH = '~/DataSets/df1/'
+OUTPUTPATH = '~/DataSets/1t/df1/'
 BERTPATH = os.path.expanduser(BERTPATH)
 DATAPATH = os.path.expanduser(DATAPATH)
-OUTPUTPATH = '~/DataSets/df1/1t/'
+OUTPUTPATH = os.path.expanduser(OUTPUTPATH)
 DATASETS = ['Train_DataSet.csv','Test_DataSet.csv']
 DATASET_LABELS = 'Train_DataSet_Label.csv'
-EVALSET=True
+EVALSET=False
 # 7354:764,3659,2932
 datas = []
 
@@ -135,8 +136,9 @@ if __name__ == '__main__':
         else:
             (convert_list,ans_dict)=read_raw_dataset(DATASETS[1],evalSet=EVALSET)
     else:
-        if os.path.exists(OUTPUTPATH + 'OUTPUT_' + DATASETS[0],):
-            convert_list=[cPickle.load(open(OUTPUTPATH + 'OUTPUT_' + DATASETS[0],mode='rb'))]
+        if os.path.exists(OUTPUTPATH + 'OUTPUT_' + DATASETS[0]+'227404',):
+            convert_list=[cPickle.load(open(OUTPUTPATH + 'OUTPUT_' + DATASETS[0]+'227404',mode='rb'))]
+            convert_list.append(cPickle.load(open(OUTPUTPATH + 'OUTPUT_' + DATASETS[0]+'59197',mode='rb')))
             ans_dict=load_answers()
         else:
             (convert_list,ans_dict)=read_raw_dataset(DATASETS[0],evalSet=EVALSET)
@@ -146,7 +148,7 @@ if __name__ == '__main__':
                            id_field='id',
                            input_list=convert_list_item,
                            label_dict=ans_dict,
-                           batch_size=32,
+                           batch_size=64,
                            bert_folder=BERTPATH,
                            output_folder=OUTPUTPATH)
         extract(config)
