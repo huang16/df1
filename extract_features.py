@@ -56,19 +56,21 @@ class ExtractConf(object):
                  id_field=None,
                  input_list=None,
                  label_dict=None,
+                 label_len=32,
                  checkpoint_folder=None,
                  do_lower_case=True,
                  batch_size=32,
                  layers='-1,-2,-3,-4',
                  use_one_hot_embeddings=False,
                  bert_folder='~/Models/chinese_roberta_wwm_ext_L-12_H-768_A-12/',
-                 output_folder='~/DataSets/df1/',
+                 output_folder='~/DataSets/1t/df1/',
                  use_tpu=False,
                  master=None,
                  num_tpu_cores=8):
         self.max_seq_length = max_seq_length
         self.sentence_field = sentence_field
         self.id_field = id_field
+        self.label_len=label_len
         self.input_list = input_list
         self.label_dict = label_dict
         self.checkpoint_folder = checkpoint_folder
@@ -440,7 +442,7 @@ def extract(config):
         seq_length=config.max_seq_length
     )
     now = time.localtime()
-    output_filename = 'extract_features_time_%d_%d_%d_%d_size_%d.tf_record' % (now.tm_mon,
+    output_filename = config.output_folder+'extract_features_time_%d_%d_%d_%d_size_%d.tf_record' % (now.tm_mon,
                                                                                now.tm_mday,
                                                                                now.tm_hour,
                                                                                now.tm_min,
@@ -464,7 +466,7 @@ def extract(config):
         label = -1
         if config.label_dict is not None:
             try:
-                label = config.label_dict[bytes.decode(unique_id)]
+                label = config.label_dict[bytes.decode(unique_id)[0:config.label_len]]
             except KeyError:
                 invalid_key += 1
         result_out = FeatureExtract(unique_id, matrix, label)

@@ -19,11 +19,12 @@ class DataExample(object):
     __getitem__ = object.__getattribute__
 
 
-BERTPATH = '~/Models/chinese_wwm_ext_L-12_H-768_A-12/'
+BERTPATH = '~/Models/chinese_roberta_wwm_large_ext_L-24_H-1024_A-16/'
 DATAPATH = '~/DataSets/df1/'
+OUTPUTPATH = '~/DataSets/1t/df1/'
 BERTPATH = os.path.expanduser(BERTPATH)
 DATAPATH = os.path.expanduser(DATAPATH)
-OUTPUTPATH = '~/DataSets/df1/1t/'
+OUTPUTPATH=os.path.expanduser(OUTPUTPATH)
 DATASETS = ['Train_DataSet.csv','Test_DataSet.csv']
 DATASET_LABELS = 'Train_DataSet_Label.csv'
 EVALSET=True
@@ -146,7 +147,7 @@ if __name__ == '__main__':
                            id_field='id',
                            input_list=convert_list_item,
                            label_dict=ans_dict,
-                           batch_size=32,
+                           batch_size=96,
                            bert_folder=BERTPATH,
                            output_folder=OUTPUTPATH)
         extract(config)
