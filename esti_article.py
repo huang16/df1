@@ -1,20 +1,25 @@
 import tensorflow as tf
 from tensorflow import keras
+import numpy as np
 import pickle as cPickle
 import pandas as pd
 import os
 import time
 import matplotlib.pyplot as plt
+from dataclean import DataExample
 
-TRAIN=True
+
+TRAIN=False
 DEV=False
 VAL=True
-PRED=False
-CHECKPOINT=None
+PRED=True
+CHECKPOINT='./checkpoint/atkmodel1572169532.h5'
 FILEPATH='~/DataSets/1t/df1/'
-ASSEMBLEFOLDER='~/DataSets/df1/'
+ASSEMBLEFOLDER='~/DataSets/1t/df1/'
 ANSWERPATH='~/DataSets/df1/Train_DataSet_Label.csv'
 PREDICTSEQ='~/DataSets/df1/submit_example.csv'
+DEFAULTCHECKPOINT='./checkpoint/atkmodel'
+DEFAULTPREDICT='./predict'
 FILEPATH=os.path.expanduser(FILEPATH)
 ASSEMBLEFOLDER=os.path.expanduser(ASSEMBLEFOLDER)
 ANSWERPATH=os.path.expanduser(ANSWERPATH)
@@ -46,13 +51,14 @@ def assemble(raw_path,vector_path,pred=False):
     for i in range(len(rawdata)):
         id=rawdata[i]['id']
         if id[0:32] in assemble_dict.keys():
-            assemble_dict[id[0:32]]=assemble_dict[id[0:32]].append(vectordata[i])
+            listptr=assemble_dict[id[0:32]]
+            listptr.append(vectordata[i])
             if len(assemble_dict[id[0:32]])>maxlen:
                 maxlen=len(assemble_dict[id[0:32]])
         else:
             assemble_dict[id[0:32]]=[vectordata[i]]
     print(maxlen)
-    assemble_vector=[],
+    assemble_vector=[]
     assemble_label=[]
     if not pred:
         ans_dict=load_answers(ANSWERPATH)
@@ -74,10 +80,10 @@ def assemble(raw_path,vector_path,pred=False):
         return assemble_vector
 
 def make_model():
-    input=keras.Input(shape=(64,3),name='input_embmat')
-    rnn1=keras.layers.Bidirectional(keras.layers.LSTM(64,return_sequences=True),name='biRNN1')(input)
+    input=keras.Input(shape=(256,3),name='input_embmat')
+    rnn1=keras.layers.Bidirectional(keras.layers.LSTM(128,return_sequences=True),name='biRNN1')(input)
     conv1d1=keras.layers.Conv1D(32,3,activation='relu',name='conv1d')(rnn1)
-    rnn2=keras.layers.Bidirectional(keras.layers.LSTM(62),name='biRNN2')(conv1d1)
+    rnn2=keras.layers.Bidirectional(keras.layers.LSTM(64),name='biRNN2')(conv1d1)
     reshape1=keras.layers.Reshape((rnn2.shape[1],1),name='reshape1')(rnn2)
     conv1d2=keras.layers.Conv1D(5,5,strides=2,activation='relu',name='conv1d2')(reshape1)
     flatten1=keras.layers.Flatten(name='flatten1')(conv1d2)
@@ -93,39 +99,56 @@ if __name__ == '__main__':
 
 
     # TODO modify to runnable
-    train_filename=['','']
-    val_filename=['','']
-    pred_filename=['','']
+    train_filename=['OUTPUT_Train_DataSet.csv227404','1572160301']
+    val_filename=['OUTPUT_Train_DataSet.csv59197','1572160935']
+    pred_filename=['OUTPUT_Test_DataSet.csv280339','1572151553']
     if TRAIN:
-        train_x,train_y= assemble(train_filename[0],train_filename[1],pred=False)
+        train_ax,train_ay= assemble(train_filename[0],train_filename[1],pred=False)
+        train_x=keras.preprocessing.sequence.pad_sequences(train_ax,value=[0,0,0],padding='post',maxlen=256)
+        train_y=np.eye(3)[train_ay]
+        train_dataset=tf.data.Dataset.from_tensor_slices((train_x,train_y))
+        train_dataset.batch(128)
         if CHECKPOINT is not None:
             model=keras.models.load_model(CHECKPOINT)
         else:
             model=make_model()
         model.compile(optimizer=keras.optimizers.RMSprop(1e-3),
-                      loss={'dense2':'categorical_crossentropy'},
+                      loss='categorical_crossentropy',
                       metrics=['accuracy'])
         if DEV:
-            history=model.fit(train_x,train_y,epochs=32)
+            history=model.fit(train_x,train_y,epochs=16,batch_size=128)
+            '''
             plot_graphs(history, 'accuracy')
             plot_graphs(history, 'loss')
+            '''
         else:
-            dev_dataset = assemble(train_filename[0],train_filename[1],pred=False)
-            history = model.fit(dev_dataset, epochs=4, batch_size=128, validation_data=val_dataset, validation_steps=30)
-            test_loss, test_acc = model.evaluate(val_dataset)
+            #history = model.fit(train_x,train_y, epochs=32, batch_size=128, validation_data=val_dataset, validation_steps=30)
+            history = model.fit(train_x,train_y, epochs=16, batch_size=128)
+            model.save(DEFAULTCHECKPOINT + '%d.h5' % int(time.time()))
+            val_ax,val_ay=assemble(val_filename[0],val_filename[1],pred=False)
+            #val_dataset=tf.data.Dataset.from_tensor_slices((np.array(val_x),np.array(val_y)))
+            val_x = keras.preprocessing.sequence.pad_sequences(val_ax, value=[0, 0, 0], padding='post', maxlen=256)
+            val_y = np.eye(3)[val_ay]
+            test_loss, test_acc = model.evaluate(val_x,val_y,batch_size=128)
 
             print('Test Loss: {}'.format(test_loss))
             print('Test Accuracy: {}'.format(test_acc))
+            '''
             plot_graphs(history, 'accuracy')
             plot_graphs(history, 'loss')
-            model.save(DEFAULTPREDICT + '%d.h5' % int(time.time()))
+            '''
+
+
     if PRED:
         assert CHECKPOINT is not None
         model = keras.models.load_model(CHECKPOINT)
-        predict_dataset = make_dataset(datapath=pred_datapath,train=False)
-        pre=model.predict(predict_dataset)
+        predict_ax= assemble(pred_filename[0],pred_filename[1],pred=True)
+        predict_x = keras.preprocessing.sequence.pad_sequences(predict_ax, value=[0, 0, 0], padding='post', maxlen=256)
+        pred_dataset=tf.data.Dataset.from_tensor_slices((predict_x))
+        #pred_dataset.batch(256)
+        pre=model.predict(predict_x)
         print(len(pre))
-        with open(DEFAULTPREDICT+'/%d'%int(time.time()),'wb') as savepre:
+        with open(DEFAULTPREDICT+'/article%d'%int(time.time()),'wb') as savepre:
             cPickle.dump(pre,savepre)
 
 
