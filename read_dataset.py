@@ -12,10 +12,9 @@ import matplotlib.pyplot as plt
 DEFAULTCHECKPOINT='./checkpoint/savemodel'
 DEFAULTPREDICT='./predict'
 DEV=True
-TRAIN=True
-CHECKPOINT=None
-PREDICT=not TRAIN
-PREDICT=False
+TRAIN=False
+CHECKPOINT='./checkpoint/savemodel1572111169.h5'
+PREDICT=True
 '''
 train_dataset=tf.data.TFRecordDataset(train_dataset_path)
 data=train_dataset.take(1)
@@ -72,14 +71,17 @@ def make_dataset(datapath,train):
     dataset=tf.data.TFRecordDataset(datapath)
     dataset=dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
     if train:
-        dataset=dataset.shuffle(buffer_size=1024)
+        dataset=dataset.shuffle(buffer_size=2048)
     dataset=dataset.map(map_func=parse_fn,num_parallel_calls=tf.data.experimental.AUTOTUNE)
-    dataset=dataset.batch(batch_size=64)
+    if train:
+        dataset=dataset.batch(batch_size=128)
+    else:
+        dataset = dataset.batch(batch_size=256)
     return dataset
 
 def make_model():
     input=keras.Input(shape=(128,4096),name='input_embmat')
-    rnn1=keras.layers.Bidirectional(keras.layers.LSTM(128),return_sequences=True,name='biRNN1')(input)
+    rnn1=keras.layers.Bidirectional(keras.layers.LSTM(128,return_sequences=True),name='biRNN1')(input)
     conv1d1=keras.layers.Conv1D(32,3,activation='relu',name='conv1d')(rnn1)
     rnn2=keras.layers.Bidirectional(keras.layers.LSTM(126),name='biRNN2')(conv1d1)
     reshape1=keras.layers.Reshape((rnn2.shape[1],1),name='reshape1')(rnn2)
@@ -110,25 +112,32 @@ if __name__ == '__main__':
                       loss={'dense2':'categorical_crossentropy'},
                       metrics=['accuracy'])
         if DEV:
-            history=model.fit(val_dataset,epochs=32)
+            history=model.fit(val_dataset,epochs=4,batch_size=128)
+            '''
             plot_graphs(history, 'accuracy')
             plot_graphs(history, 'loss')
+            '''
 
         else:
-            history=model.fit(train_dataset,epochs=32,validation_data=val_dataset,validation_steps=30)
+            dev_dataset=make_dataset(datapath=val_datapath,train=True)
+            #history=model.fit(dev_dataset,epochs=4,batch_size=128,validation_data=val_dataset,validation_steps=30)
+            history = model.fit(train_dataset, epochs=1)
+            '''
             test_loss, test_acc = model.evaluate(val_dataset)
 
             print('Test Loss: {}'.format(test_loss))
             print('Test Accuracy: {}'.format(test_acc))
             plot_graphs(history, 'accuracy')
             plot_graphs(history, 'loss')
-            model.save(DEFAULTPREDICT+'%d.h5'%int(time.time()))
+            '''
+            model.save(DEFAULTCHECKPOINT+'%d.h5'%int(time.time()))
     if PREDICT:
+        assert CHECKPOINT is not None
         model = keras.models.load_model(CHECKPOINT)
         predict_dataset = make_dataset(datapath=pred_datapath,train=False)
         pre=model.predict(predict_dataset)
         print(len(pre))
-        with open(DEFAULTPREDICT+'/%d'%int(time.time())) as savepre:
+        with open(DEFAULTPREDICT+'/%d'%int(time.time()),'wb') as savepre:
             cPickle.dump(pre,savepre)
 
 
